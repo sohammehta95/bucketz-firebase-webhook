@@ -1,0 +1,2 @@
+# bucketz-firebase-webhook
+Wohoo!
