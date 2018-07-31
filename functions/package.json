@@ -12,6 +12,7 @@
   "dependencies": {
     "actions-on-google": "^2.2.0",
     "dialogflow-fulfillment": "^0.4.1",
+    "firebase": "^5.3.0",
     "firebase-admin": "~5.12.1",
     "firebase-functions": "^1.0.3",
     "xmlhttprequest": "^1.8.0"

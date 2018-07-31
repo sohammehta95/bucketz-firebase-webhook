@@ -9,7 +9,7 @@ const {WebhookClient} = require('dialogflow-fulfillment');
 
     const agent = new WebhookClient({ request, response });
     //getAPI(response);
-    intent = agent.intent;
+    var intent = agent.intent;
 
     //map intent names to nums
     let intentMap = new Map();
@@ -25,13 +25,16 @@ const {WebhookClient} = require('dialogflow-fulfillment');
     intentMap.set('How do I save X this week?', 9);
     intentMap.set('How do I save X this week? - First',10);
     intentMap.set('How do I save X this week? - second',11);
-    intentMap.set('How do I save X this week? - second - bucket', 12)
+    intentMap.set('How do I save X this week? - second - bucket', 12);
     intentMap.set('How do I save X this week? - First - buckets', 13);
-    intentMap.set('Show me my buckets', 14)
+    intentMap.set('Show me my buckets', 14);
     intentMap.set('how much did i save on X last/this Y?', 15);
     intentMap.set('How do I save X this week? - second - bucket - yes', 16);
-    intentMap.set('How do I save X this week? - First - buckets - yes', 17)
-    intentMap.set('Set up user account', 18)
+    intentMap.set('How do I save X this week? - First - buckets - yes', 17);
+    intentMap.set('Set up user account', 18);
+    intentMap.set('Link User Bank Account',19);
+    intentMap.set('How much did I earn', 20);
+    intentMap.set('set up my buckets',21);
 
     determineIntent(response, intentMap.get(intent), agent);
     
@@ -97,8 +100,45 @@ const {WebhookClient} = require('dialogflow-fulfillment');
         case 18:
             setUpAccount(response,agent);
             break;
+        case 19:
+            linkUserBanKAccount(response, agent);
+            break;
+        case 20:
+            howMuchEarned(response, agent);
+            break;
+        case 21:
+            setUpMyBuckets(response, agent);
+            break;
         default:
     }
+ }
+ 
+
+ //sends user to link bank account
+ function linkUserBanKAccount(response, agent) {
+     var fbid = agent.originalRequest['payload']['data']['sender']['id'];
+     var toSend = {"fulfillmentMessages": [
+                            {
+                              "card": {
+                                "title": "Go To Verification Page",
+                                "buttons": [
+                                  {
+                                    "text": "lets go!",
+                                    "postback": "https://www.bucketzapp.com/plaid?senderId=" + fbid
+                                  }
+                                ]
+                              },
+                              "platform": "FACEBOOK"
+                            },
+                            {
+                              "text": {
+                                "text": [
+                                  ""
+                                ]
+                              }
+                            }
+                          ]}
+                          response.send(toSend);
  }
 
  //check if user is already registered
@@ -118,7 +158,7 @@ const {WebhookClient} = require('dialogflow-fulfillment');
                                 "buttons": [
                                   {
                                     "text": "lets go!",
-                                    "postback": "https://konviv.github.io/user_signup/?" + fbid
+                                    "postback": "https://www.bucketzapp.com/signup?senderId=" + fbid
                                   }
                                 ]
                               },
@@ -207,6 +247,29 @@ const {WebhookClient} = require('dialogflow-fulfillment');
       ]};
     response.send(JSON.stringify(data));
   }
+  
+  //handle linking account
+  function askUserToLinkBank(response, agent) {
+    var data = {"fulfillmentMessages": [
+        {
+          "quickReplies": {
+            "title": "You need to link your bank account to fo that!",
+            "quickReplies": [
+              "Link account!"
+            ]
+          },
+          "platform": "FACEBOOK"
+        },
+        {
+          "text": {
+            "text": [
+                "You need to link your bank account to fo that!"
+            ]
+          }
+        }
+      ]};
+    response.send(JSON.stringify(data));
+  }
 
  //handle cutRequest for multiple buckets
  function cutMoneyRequestMultiple(bucketCutMap, buckets, response, agent) {
@@ -232,7 +295,7 @@ const {WebhookClient} = require('dialogflow-fulfillment');
     var toSend = ""
         
     for (var i = 0; i < buckets.length; i++) {
-        toSend += "buckets." + buckets[i] + "=" + (Number(bucketCutMap[buckets[i]]["before"]) - Number(bucketCutMap[buckets[i]]["subtract"]));
+        toSend += "buckets." + buckets[i] + "=" + (Number(bucketCutMap[buckets[i]]["before"]) - Number(bucketCutMap[buckets[i]]["subtract"])).toFixed(2);
         if (i < buckets.length - 1) {
             toSend += "&";
         }
@@ -262,8 +325,8 @@ const {WebhookClient} = require('dialogflow-fulfillment');
                 var bucketCutMap = new Map()
 
                 for (i = 0; i < buckets.length; i++) {
-                    bucketCutMap[buckets[i]] = {"subtract":Math.ceil((JSON.parse(XHR.responseText)[0]['buckets'][buckets[i]]/total)*amount),
-                    "before":JSON.parse(XHR.responseText)[0]['buckets'][buckets[i]]};
+                    bucketCutMap[buckets[i]] = {"subtract":((JSON.parse(XHR.responseText)[0]['buckets'][buckets[i]]/total)*amount).toFixed(2),
+                    "before":JSON.parse(XHR.responseText)[0]['buckets'][buckets[i]].toFixed(2)};
 
                     console.log(buckets[i] + ": " + bucketCutMap[buckets[i]]);
                 }
@@ -315,9 +378,9 @@ const {WebhookClient} = require('dialogflow-fulfillment');
     var data = {};
 
     if (amount > bucketCash) {
-        data = {'fulfillmentText':'Sorry your ' + `${bucket}` + " bucket only has $" + `${bucketCash}` + " in it."}
+        data = {'fulfillmentText':'Sorry your ' + `${bucket}` + " bucket only has $" + `${bucketCash.toFixed(2)}` + " in it."}
     } else {
-        data = {'fulfillmentText':'Ok, I just cut $' + `${amount}` + " from your " + `${bucket}` + " bucket"};
+        data = {'fulfillmentText':'Ok, I just cut $' + `${amount.toFixed(2)}` + " from your " + `${bucket}` + " bucket"};
 
         var XHR = new XMLHttpRequest();
     
@@ -334,7 +397,7 @@ const {WebhookClient} = require('dialogflow-fulfillment');
         var fb_id = agent.originalRequest['payload']['data']['sender']['id'];
         XHR.open("PUT", "https://www.bucketzapp.com/api/users/fbid/" + fb_id);
         XHR.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-        XHR.send("buckets." + bucket +"="+ (Number(bucketCash) - Number(amount)))
+        XHR.send("buckets." + bucket +"="+ (Number(bucketCash) - Number(amount)).toFixed(2));
     }
     response.send(JSON.stringify(data));
  }
@@ -382,7 +445,7 @@ const {WebhookClient} = require('dialogflow-fulfillment');
                     text[i] = {
                         "text": {
                         "text": [
-                            `${Object.keys(buckets)[i]}`+ ": $" + `${buckets[Object.keys(buckets)[i]]}` 
+                            `${Object.keys(buckets)[i]}`+ ": $" + `${buckets[Object.keys(buckets)[i]].toFixed(2)}` 
                         ]
                         }
                     }
@@ -423,21 +486,21 @@ const {WebhookClient} = require('dialogflow-fulfillment');
                     var bucketCutMap = new Map()
 
                     if (amount > total) {
-                        data = {'fulfillmentText':'Sorry you only have a total of $' + `${total}` + " in these buckets combined!"};
+                        data = {'fulfillmentText':'Sorry you only have a total of $' + `${total.toFixed(2)}` + " in these buckets combined!"};
                         response.send(JSON.stringify(data));
                     } else {
                         for (i = 0; i < buckets.length; i++) {
-                            bucketCutMap[buckets[i]] = Math.ceil((JSON.parse(XHR.responseText)[0]['buckets'][buckets[i]]/total)*amount);
+                            bucketCutMap[buckets[i]] = ((JSON.parse(XHR.responseText)[0]['buckets'][buckets[i]]/total)*amount).toFixed(2);
                             //console.log(buckets[i] + ": " + bucketCutMap[buckets[i]]);
                         }
                     }
 
                     var text = "Ok, I can cut ";
                     for (i = 0; i < buckets.length -1; i++) {
-                        text += "$"+`${bucketCutMap[buckets[i]]}` + " from " + `${buckets[i]}` + ", ";
+                        text += "$"+ (bucketCutMap[buckets[i]]) + " from " + `${buckets[i]}` + ", ";
                     }
                     
-                    text += " and $"+`${bucketCutMap[buckets[i]]}` + " from " + `${buckets[i]}` + ". Is that okay?"
+                    text += " and $" + (bucketCutMap[buckets[i]]) + " from " + `${buckets[i]}` + ". Is that okay?";
                 
                     var data = {"fulfillmentMessages": [
                     {
@@ -479,7 +542,7 @@ const {WebhookClient} = require('dialogflow-fulfillment');
      var data = {"fulfillmentMessages": [
         {
           "quickReplies": {
-            "title": "Ok, I can cut $" + `${amount}` + " from your " + `${bucket}` + " bucket. Is that okay?",
+            "title": "Ok, I can cut $" + `${amount.toFixed(2)}` + " from your " + `${bucket}` + " bucket. Is that okay?",
             "quickReplies": [
               "Yes",
               "No"
@@ -541,14 +604,203 @@ const {WebhookClient} = require('dialogflow-fulfillment');
       response.send(JSON.stringify(data));
 }
 
+//set up bucket sizes
+function setUpMyBuckets(response, agent) {
+    var XHR = new XMLHttpRequest();
+    XHR.responseType = 'text';
+    var reply ="";
+
+    XHR.onreadystatechange = function() {
+        var categoryMap = new Map();
+        categoryMap.set('Travel',0);
+        categoryMap.set('Tax',0);
+        categoryMap.set('Transfer',0);
+        categoryMap.set('Travel',0);
+        categoryMap.set('Shops',0);
+        categoryMap.set('Service',0);
+        categoryMap.set('Recreation',0);
+        categoryMap.set('Payment',0);
+        categoryMap.set('HealthCare',0);
+        categoryMap.set("Food and Drink",0);
+        categoryMap.set('Community',0);
+        categoryMap.set('BankFees',0);
+        categoryMap.set('CashAdvance',0);
+        categoryMap.set('Interest',0);
+        categoryMap.set('Income',0);
+        categoryMap.set('Total',0);
+        
+        if(XHR.readyState === 4) {
+            if(XHR.status === 200) {
+                reply = XHR.responseText;
+            } else {
+                reply = "there was an error";
+            }
+            if (reply === "[]") {
+                askUserToLinkBank(response, agent);
+            } else {
+                
+                var transactions = JSON.parse(reply)[0]['transactions'];
+                
+            
+                for (var i = 0; i < transactions.length; i ++) {
+                        if (transactions[i]['amount'] < 0) {
+                            categoryMap.set('Income',categoryMap.get('Income') - transactions[i]['amount']);
+                        } else {
+                            categoryMap.set(transactions[i]['category'][0],categoryMap.get(transactions[i]['category'][0]) + transactions[i]['amount']);
+                            categoryMap.set('Total',categoryMap.get('Total') + transactions[i]['amount']);
+                        }
+                }
+                
+                updateBuckets(response,agent, categoryMap);
+            }  
+        }
+    }
+
+    var fb_id = agent.originalRequest['payload']['data']['sender']['id'];
+    XHR.open("GET", "https://www.bucketzapp.com/plaid/sender/" + fb_id);
+    XHR.send();
+}
+
+//update the buckets
+function updateBuckets(response, agent, categoryMap) {
+        var toSend ="";
+        console.log("test4");
+        console.log(Array.from(categoryMap.keys()));
+        
+        var keys = Array.from(categoryMap.keys());
+
+        for (var i = 0; i < categoryMap.size; i++) {
+            if (keys[i]==='Income' || keys[i]==='Total'){
+                //do nothing
+            } else {
+                var percent = categoryMap.get(keys[i])/categoryMap.get('Total');
+                var bucket = keys[i].toLowerCase();
+                
+                console.log(bucket);
+                if (bucket==="food and drink") {
+                    bucket = "foodAndDrink";
+                } else if (bucket==="cashadvance") {
+                    bucket = "cashAdvance";
+                } else if (bucket==="bankfees") {
+                    bucket = "bankFees";
+                }
+                toSend += "buckets." + bucket +"=" + (percent*categoryMap.get('Income')/3).toFixed(2) + "&";
+            }
+        }
+        toSend = toSend.substring(0,toSend.length-1);
+        console.log(toSend);
+
+        var XHR = new XMLHttpRequest();
+    
+        XHR.onreadystatechange = function() {
+            if(XHR.readyState === 4) {
+                if(XHR.status === 200) {
+                    console.log('success')
+                } else {
+                    console.log('error')
+                }
+            }
+        };
+            
+        var fb_id = agent.originalRequest['payload']['data']['sender']['id'];
+        XHR.open("PUT", "https://www.bucketzapp.com/api/users/fbid/" + fb_id);
+        XHR.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+        XHR.send(toSend);
+        
+         var data = {'fulfillmentText':"Ok your buckets have been set up! Income per month $" + (categoryMap.get('Income')/3).toFixed(2)}; 
+         response.send(JSON.stringify(data));
+    }
+
 //handle last transactions query
 function lastTransactions(response, agent) {
     var num_trans = agent.parameters['number'];
 
-    //TODO: get array of X transactions from api
-    var data = {'fulfillmentText':"Your last " + `${num_trans}` + " transactions are shown below"}; 
-    response.send(JSON.stringify(data));
-    //TODO: get representation of transactions and show
+    var XHR = new XMLHttpRequest();
+    XHR.responseType = 'text';
+    var reply ="";
+
+    XHR.onreadystatechange = function() {
+        if(XHR.readyState === 4) {
+            if(XHR.status === 200) {
+                reply = XHR.responseText;
+            } else {
+                reply = "there was an error";
+            }
+            if (reply === "[]") {
+                askUserToLinkBank(response, agent);
+            } else {
+                
+                var transactions = JSON.parse(reply)[0]['transactions'];
+                
+                if (num_trans > transactions.length) {
+                    num_trans = transactions.length;
+                }
+                
+                var toSend = "Your last " + `${num_trans}` + " transactions are shown below";
+            
+                for (var i = 0; i < num_trans; i ++) {
+                    toSend +="\n\nBucket: " + transactions[i]['category'][0] + "\n Name: " + transactions[i]['name'] 
+                                + "\nAmount: $" + transactions[i]['amount'].toFixed(2) 
+                                + "\nDate: " + transactions[i]['date'];
+                }
+                
+                var data = {'fulfillmentText':toSend}; 
+                
+                response.send(JSON.stringify(data));
+            }  
+        }
+    }
+
+    var fb_id = agent.originalRequest['payload']['data']['sender']['id'];
+    XHR.open("GET", "https://www.bucketzapp.com/plaid/sender/" + fb_id);
+    XHR.send();
+}
+
+//calculate earnings
+function howMuchEarned(response, agent) {
+    var start_date = agent.parameters['date-period']['startDate'];
+    var end_date = agent.parameters['date-period']['endDate'];
+    start_date= start_date.substring(0,start_date.indexOf('T'));
+    end_date = end_date.substring(0,end_date.indexOf('T'));
+    
+    var XHR = new XMLHttpRequest();
+    XHR.responseType = 'text';
+    var reply ="";
+
+    XHR.onreadystatechange = function() {
+        if(XHR.readyState === 4) {
+            if(XHR.status === 200) {
+                reply = XHR.responseText;
+            } else {
+                reply = "there was an error";
+            }
+            if (reply === "[]") {
+                askUserToLinkBank(response, agent);
+            } else {
+                
+                var transactions = JSON.parse(reply)[0]['transactions'];
+                
+                //add up the purchases
+                var total = 0;
+            
+                for (var i = 0; i < transactions.length; i ++) {
+                    if (transactions[i]['date'] >= start_date && transactions[i]['date'] <= end_date && transactions[i]['amount'] < 0) {
+                        total -= transactions[i]['amount'];   
+                    }
+                }
+                
+                
+                var data = {'fulfillmentText': "From " + start_date + " to " + end_date + ", you have earned $" + total.toFixed(2) + "."};   
+        
+                
+                response.send(JSON.stringify(data));
+            }  
+        }
+    }
+
+    var fb_id = agent.originalRequest['payload']['data']['sender']['id'];
+    XHR.open("GET", "https://www.bucketzapp.com/plaid/sender/" + fb_id);
+    XHR.send();
 }
 
 
@@ -556,11 +808,47 @@ function lastTransactions(response, agent) {
 function spendTodayTotal(response, agent) {
     var start_date = agent.parameters['date-period']['startDate'];
     var end_date = agent.parameters['date-period']['endDate'];
-    //TODO: get from api
-    var spent = 5000;
+    start_date= start_date.substring(0,start_date.indexOf('T'));
+    end_date = end_date.substring(0,end_date.indexOf('T'));
+    
+    var XHR = new XMLHttpRequest();
+    XHR.responseType = 'text';
+    var reply ="";
 
-    var data = {'fulfillmentText':"You have spent a total of $" + `${spent}` + " from " + `${start_date}` + " to " + `${end_date}`}; 
-    response.send(JSON.stringify(data));
+    XHR.onreadystatechange = function() {
+        if(XHR.readyState === 4) {
+            if(XHR.status === 200) {
+                reply = XHR.responseText;
+            } else {
+                reply = "there was an error";
+            }
+            if (reply === "[]") {
+                askUserToLinkBank(response, agent);
+            } else {
+                
+                var transactions = JSON.parse(reply)[0]['transactions'];
+                
+                //add up the purchases
+                var total = 0;
+            
+                for (var i = 0; i < transactions.length; i ++) {
+                    if (transactions[i]['date'] >= start_date && transactions[i]['date'] <= end_date && transactions[i]['amount'] > 0) {
+                        total += transactions[i]['amount'];   
+                    }
+                }
+                
+                
+                var data = {'fulfillmentText': "From " + start_date + " to " + end_date + ", you have spent $" + total.toFixed(2) + "."};   
+        
+                
+                response.send(JSON.stringify(data));
+            }  
+        }
+    }
+
+    var fb_id = agent.originalRequest['payload']['data']['sender']['id'];
+    XHR.open("GET", "https://www.bucketzapp.com/plaid/sender/" + fb_id);
+    XHR.send();
 } 
 
 //handle how much did I spend this week querey
@@ -568,12 +856,50 @@ function spendThisWeek(response, agent) {
     var bucket = agent.parameters['buckets'];
     var start_date = agent.parameters['date-period']['startDate'];
     var end_date = agent.parameters['date-period']['endDate'];
+    start_date= start_date.substring(0,start_date.indexOf('T'));
+    end_date = end_date.substring(0,end_date.indexOf('T'));
 
-    //TODO: use API to figure out how much the user has spent in this time period in this bucket
-    var spent = 5000;
+    var XHR = new XMLHttpRequest();
+    XHR.responseType = 'text';
+    var reply ="";
 
-    var data = {'fulfillmentText':"You have spent $" + `${spent}` + " on your " + `${bucket}` + " bucket from " + `${start_date}` + " to " + `${end_date}` + "."}; 
-    response.send(JSON.stringify(data));
+    XHR.onreadystatechange = function() {
+        if(XHR.readyState === 4) {
+            if(XHR.status === 200) {
+                reply = XHR.responseText;
+            } else {
+                reply = "there was an error";
+            }
+            if (reply === "[]") {
+                askUserToLinkBank(response, agent);
+            } else {
+                
+                var transactions = JSON.parse(reply)[0]['transactions'];
+                
+                //add up the purchases
+                var total = 0;
+                if (bucket ==="foodAndDrink") {
+                    bucket = "food and drink";
+                }
+                for (var i = 0; i < transactions.length; i ++) {
+                    if (transactions[i]['date'] >= start_date && transactions[i]['date'] <= end_date && 
+                    transactions[i]['amount'] > 0 && transactions[i]['category'][0].toLowerCase() === bucket) {
+                        total += transactions[i]['amount'];
+                    } 
+                }
+                
+                
+                var data = {'fulfillmentText':"From " + start_date + " to " + end_date +", you have spent $" + total.toFixed(2) + " on your " + bucket + " bucket."};   
+        
+                
+                response.send(JSON.stringify(data));
+            }  
+        }
+    }
+
+    var fb_id = agent.originalRequest['payload']['data']['sender']['id'];
+    XHR.open("GET", "https://www.bucketzapp.com/plaid/sender/" + fb_id);
+    XHR.send();
 }
 
 //handle save total request
@@ -583,20 +909,56 @@ function getSaveTotal(response, agent) {
     //TODO: get save data from buckets
     var saved = 600;
 
-    var data = {'fulfillmentText':"From " + `${start_date}` + " to " + `${end_date}` + " you saved a total of $" + `${saved}` + "."}; 
+    var data = {'fulfillmentText':"From " + `${start_date}` + " to " + `${end_date}` + " you saved a total of $" + `${saved.toFixed(2)}` + "."}; 
     response.send(JSON.stringify(data));
 }
 
 //handle most expensive request
 function mostExpensive(response, agent) {
-    var start_date = agent.parameters['date-period']['startDate'];
-    var end_date = agent.parameters['date-period']['endDate'];
-    //TODO: get actual transaction data
-    var item = "Flat Screen TV";
-    var cost = 500;
+    var XHR = new XMLHttpRequest();
+    XHR.responseType = 'text';
+    var reply ="";
 
-    var data = {'fulfillmentText': "Your most expensive purchase in the time period " + `${start_date}` + " to " + `${end_date}` + " was for a " + `${item}` + ". It cost $" + `${cost}`}; 
-    response.send(JSON.stringify(data));
+    XHR.onreadystatechange = function() {
+        if(XHR.readyState === 4) {
+            if(XHR.status === 200) {
+                reply = XHR.responseText;
+            } else {
+                reply = "there was an error";
+            }
+            if (reply === "[]") {
+                askUserToLinkBank(response, agent);
+            } else {
+                
+                console.log(JSON.parse(reply)[0]['transactions']);
+                var transactions = JSON.parse(reply)[0]['transactions'];
+                
+                //find the most expensive purchase
+                var cost = 0;
+                var id = 0;
+                for (var i = 0; i < transactions.length; i ++) {
+                    if (parseFloat(transactions[i]['amount']) > cost) {
+                        id = i;
+                        cost = parseFloat(transactions[i]['amount']);
+                    } 
+                }
+                
+                //default case if no money was spent
+                var data = {'fulfillmentText': "In the past 90 days, you have not made a purchase"};   
+                
+                if (cost > 0) {
+                    data = {'fulfillmentText': "In the past 90 days, your most expensive purchase was for $" + cost.toFixed(2) + " on " 
+                    + transactions[id]['name']};   
+                }
+                
+                response.send(JSON.stringify(data));
+            }  
+        }
+    }
+
+    var fb_id = agent.originalRequest['payload']['data']['sender']['id'];
+    XHR.open("GET", "https://www.bucketzapp.com/plaid/sender/" + fb_id);
+    XHR.send();
 }
 
 //handle move money between buckets
@@ -640,12 +1002,12 @@ function moveMoney(response, agent) {
 //handle transfering money
 function transferMoney(fromBucket, fromBucketCash, toBucket, toBucketCash, amount, response, agent) {
     if (fromBucketCash < amount) {
-        var data = {'fulfillmentText': "You don't have enough money in your " + `${fromBucket}` + " bucket. It only has $" + `${fromBucketCash}` + " in it."}; 
+        var data = {'fulfillmentText': "You don't have enough money in your " + `${fromBucket}` + " bucket. It only has $" + `${fromBucketCash.toFixed(2)}` + " in it."}; 
     } else {
         //TODO: handle transfer amount bucket API task
-        data = {'fulfillmentText':"OK! I have just  moved $" + `${amount}` + " from your " + `${fromBucket}` + " to your " + `${toBucket}` + " here are your new bucket contents...\n"+
-        `${fromBucket}` + ": $" + `${Number(fromBucketCash) - Number(amount)}` + "\n"+
-        `${toBucket}` + ": $" + `${Number(toBucketCash) + Number(amount)}`}; 
+        data = {'fulfillmentText':"OK! I have just  moved $" + `${amount.toFixed(2)}` + " from your " + `${fromBucket}` + " to your " + `${toBucket}` + " here are your new bucket contents...\n"+
+        `${fromBucket}` + ": $" + `${(Number(fromBucketCash) - Number(amount)).toFixed(2)}` + "\n"+
+        `${toBucket}` + ": $" + `${(Number(toBucketCash) + Number(amount)).toFixed(2)}`}; 
 
         var XHR = new XMLHttpRequest();
   
@@ -661,7 +1023,7 @@ function transferMoney(fromBucket, fromBucketCash, toBucket, toBucketCash, amoun
         var fb_id = agent.originalRequest['payload']['data']['sender']['id'];
         XHR.open("PUT", "https://www.bucketzapp.com/api/users/fbid/" + fb_id);
         XHR.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-        XHR.send("buckets." + fromBucket+"="+ (Number(fromBucketCash) - Number(amount)) + "&buckets." + toBucket + "=" + (Number(toBucketCash) + Number(amount)))
+        XHR.send("buckets." + fromBucket+"="+ (Number(fromBucketCash) - Number(amount)).toFixed(2) + "&buckets." + toBucket + "=" + (Number(toBucketCash) + Number(amount)).toFixed(2));
     }
     response.send(JSON.stringify(data));
 }
@@ -684,7 +1046,7 @@ function transferMoney(fromBucket, fromBucketCash, toBucket, toBucketCash, amoun
                 askUserToCreateAccount(response, agent);
             } else {
                 var cash = JSON.parse(reply)[0]['buckets'][bucket.replace(/ /g,'_')]; 
-                var data = {'fulfillmentText': "You have $" + `${cash}` + " left in your " + `${bucket}` + " bucket!" }; 
+                var data = {'fulfillmentText': "You have $" + `${cash.toFixed(2)}` + " left in your " + `${bucket}` + " bucket!" }; 
                 response.send(JSON.stringify(data));
             }       
         }
@@ -719,11 +1081,11 @@ function transferMoney(fromBucket, fromBucketCash, toBucket, toBucketCash, amoun
                 var enoughCash = (cash - cost > 0);
 
                 if (enoughCash) {
-                    var data = {'fulfillmentText': "Sure you have $" + `${cash}` + " in your " + `${bucket}` + 
-                    " bucket! after this purchase  of $" + `${cost}` + " you will still have $" + `${cash - cost}` + "!"}; 
+                    var data = {'fulfillmentText': "Sure you have $" + `${cash.toFixed(2)}` + " in your " + `${bucket}` + 
+                    " bucket! after this purchase  of $" + `${cost.toFixed(2)}` + " you will still have $" + `${(cash - cost).toFixed(2)}` + "!"}; 
                 } else {
-                    data = {'fulfillmentText': "No sorry, you have $" + `${cash}` + " in your " + `${bucket}` + 
-                    " bucket. You need $" + `${cost - cash}` + " more " + `${currency}` + " to make this purchase."};
+                    data = {'fulfillmentText': "No sorry, you have $" + `${cash.toFixed(2)}` + " in your " + `${bucket}` + 
+                    " bucket. You need $" + `${(cost - cash).toFixed(2)}` + " more " + `${currency}` + " to make this purchase."};
                 }
                 response.send(JSON.stringify(data));
             }  
@@ -741,8 +1103,33 @@ function transferMoney(fromBucket, fromBucketCash, toBucket, toBucketCash, amoun
      console.log('sender_2: ' + agent.originalRequest['payload']['data']['sender']['id'])
      console.log('recipient_2: ' + agent.originalRequest['payload']['data']['recipient']['id'])
      console.log('message_2: ' + agent.originalRequest['payload']['data']['message']['text'])
-    var data = {'fulfillmentText': 'You have $80 in Debit Card, $100 in Credit Card… In total you have $180.'}; 
-    response.send(JSON.stringify(data));
+    
+    var XHR = new XMLHttpRequest();
+    XHR.responseType = 'text';
+    var reply ="";
+
+    XHR.onreadystatechange = function() {
+        if(XHR.readyState === 4) {
+            if(XHR.status === 200) {
+                reply = XHR.responseText;
+            } else {
+                reply = "there was an error";
+            }
+            if (reply === "[]") {
+                askUserToLinkBank(response, agent);
+            } else {
+                console.log("new3");
+                console.log(JSON.parse(reply)[0]);
+                var amount = JSON.parse(reply)[0]['accounts'][0]['balances']['available'];
+                var data = {'fulfillmentText': 'You have $' + amount.toFixed(2) + ' in your account!'}; 
+                response.send(JSON.stringify(data));
+            }  
+        }
+    }
+
+    var fb_id = agent.originalRequest['payload']['data']['sender']['id'];
+    XHR.open("GET", "https://www.bucketzapp.com/plaid/sender/" + fb_id);
+    XHR.send();
     
  }
 
