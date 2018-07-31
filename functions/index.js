@@ -909,12 +909,17 @@ function getSaveTotal(response, agent) {
     //TODO: get save data from buckets
     var saved = 600;
 
-    var data = {'fulfillmentText':"From " + `${start_date}` + " to " + `${end_date}` + " you saved a total of $" + `${saved.toFixed(2)}` + "."}; 
+    var data = {'fulfillmentText':"From " + `${start_date}` + " to " + `${end_date}` + ", you saved a total of $" + `${saved.toFixed(2)}` + "."}; 
     response.send(JSON.stringify(data));
 }
 
 //handle most expensive request
 function mostExpensive(response, agent) {
+    var start_date = agent.parameters['date-period']['startDate'];
+    var end_date = agent.parameters['date-period']['endDate'];
+    start_date= start_date.substring(0,start_date.indexOf('T'));
+    end_date = end_date.substring(0,end_date.indexOf('T'));
+    
     var XHR = new XMLHttpRequest();
     XHR.responseType = 'text';
     var reply ="";
@@ -937,17 +942,18 @@ function mostExpensive(response, agent) {
                 var cost = 0;
                 var id = 0;
                 for (var i = 0; i < transactions.length; i ++) {
-                    if (parseFloat(transactions[i]['amount']) > cost) {
+                    if (transactions[i]['date'] >= start_date && transactions[i]['date'] <= end_date &&
+                        parseFloat(transactions[i]['amount']) > cost) {
                         id = i;
                         cost = parseFloat(transactions[i]['amount']);
                     } 
                 }
                 
                 //default case if no money was spent
-                var data = {'fulfillmentText': "In the past 90 days, you have not made a purchase"};   
+                var data = {'fulfillmentText': "From " + `${start_date}` + " to " + `${end_date}` + ", you have not made a purchase"};   
                 
                 if (cost > 0) {
-                    data = {'fulfillmentText': "In the past 90 days, your most expensive purchase was for $" + cost.toFixed(2) + " on " 
+                    data = {'fulfillmentText': "From " + `${start_date}` + " to " + `${end_date}` + ", your most expensive purchase was for $" + cost.toFixed(2) + " on " 
                     + transactions[id]['name']};   
                 }
                 
